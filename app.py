@@ -1,87 +1,103 @@
 """
-CodeAlpha Task 4 — Multi-Disease Prediction Healthcare Dashboard
-Author: Antigravity (ML Engineer & Technical Mentor)
+Multi-Disease Classification System
 Dataset: CDC Behavioral Risk Factor Surveillance System (BRFSS) 2024
-Methodological Scope: Educational Multi-Disease Classification
 """
 
 import os
 import sys
-import json
 import numpy as np
 import pandas as pd
 import streamlit as st
-from PIL import Image
 
 # Ensure project root is in path
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
 from src.prediction import MultiDiseasePredictor, get_sample_patient_profiles
 from src.data_preprocessing import CLEAN_FEATURE_NAMES
-from src.model_training import DISEASE_METADATA
 
 
 # ---------------------------------------------------------
 # PAGE CONFIGURATION & STYLING
 # ---------------------------------------------------------
 st.set_page_config(
-    page_title="Multi-Disease Educational Classification Dashboard",
-    page_icon="🩺",
+    page_title="Multi-Disease Classification",
+    page_icon="Health",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for modern healthcare aesthetic
+# Minimal, clean typography and adaptive neutral palette
 st.markdown("""
 <style>
-    .main-header {
-        font-size: 2.2rem;
-        font-weight: 700;
-        color: #1e3d59;
-        margin-bottom: 0.2rem;
+    /* Global font & typography */
+    html, body, [class*="css"] {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     }
-    .sub-header {
-        font-size: 1.1rem;
-        color: #4b6584;
-        margin-bottom: 1.5rem;
+    
+    /* Main container spacing */
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 3rem;
+        max-width: 960px;
     }
-    .disclaimer-box {
-        background-color: #fff3cd;
-        color: #856404;
-        padding: 14px 20px;
-        border-radius: 8px;
-        border-left: 5px solid #ffeeba;
+    
+    /* Header styling */
+    .app-title, h1.app-title {
+        font-size: 1.85rem !important;
+        font-weight: 700 !important;
+        color: #38bdf8 !important; /* light blue */
+        margin-bottom: 0.35rem !important;
+        letter-spacing: -0.02em !important;
+    }
+    .app-subtitle {
         font-size: 0.95rem;
-        margin-bottom: 1.5rem;
+        color: var(--text-color, #94a3b8);
+        opacity: 0.85;
+        margin-bottom: 1.75rem;
         line-height: 1.5;
     }
-    .info-box {
-        background-color: #e8f4f8;
-        color: #1a5276;
-        padding: 12px 18px;
-        border-radius: 8px;
-        border-left: 5px solid #2980b9;
-        font-size: 0.9rem;
-        margin-bottom: 1.2rem;
+    
+    /* Section headers in forms */
+    .section-title, h2.section-title, h3.section-title {
+        font-size: 1.15rem !important;
+        font-weight: 600 !important;
+        color: #38bdf8 !important; /* light blue */
+        border-bottom: 2px solid #38bdf8 !important;
+        padding-bottom: 0.4rem !important;
+        margin-top: 1.75rem !important;
+        margin-bottom: 1.15rem !important;
     }
-    .metric-card {
-        background: #f8f9fa;
-        border: 1px solid #e9ecef;
-        border-radius: 8px;
-        padding: 15px;
-        margin-bottom: 10px;
+    
+    /* Conditions list in overview */
+    .condition-item {
+        background: rgba(128, 128, 128, 0.07);
+        border: 1px solid rgba(128, 128, 128, 0.2);
+        border-radius: 6px;
+        padding: 0.85rem 1.1rem;
+        margin-bottom: 0.5rem;
+        font-size: 0.95rem;
+        font-weight: 500;
+        color: var(--text-color, #334155);
     }
-    .risk-high {
-        color: #d9534f;
-        font-weight: bold;
+    
+    /* Clean result display */
+    .result-card {
+        background: rgba(128, 128, 128, 0.07);
+        border: 1px solid rgba(128, 128, 128, 0.2);
+        border-radius: 6px;
+        padding: 1rem;
+        margin-bottom: 0.75rem;
     }
-    .risk-mod {
-        color: #f0ad4e;
-        font-weight: bold;
-    }
-    .risk-low {
-        color: #5cb85c;
-        font-weight: bold;
+    
+    /* Footer */
+    .app-footer {
+        margin-top: 3.5rem;
+        padding-top: 1.25rem;
+        border-top: 1px solid rgba(128, 128, 128, 0.2);
+        font-size: 0.85rem;
+        color: var(--text-color, #64748b);
+        opacity: 0.75;
+        text-align: center;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -98,181 +114,200 @@ predictor = load_predictor()
 
 
 # ---------------------------------------------------------
-# MANDATORY EDUCATIONAL & CLINICAL DISCLAIMER
-# ---------------------------------------------------------
-def render_disclaimer():
-    st.markdown("""
-    <div class="disclaimer-box">
-        ⚠️ <strong>Important Educational Classification & Clinical Boundary Notice:</strong><br>
-        This application is an educational data science demonstration built on cross-sectional, self-reported 
-        <strong>CDC BRFSS 2024</strong> survey data. 
-        <ul>
-            <li>Models classify whether a respondent's self-reported lifestyle and demographic indicators align with individuals reporting an existing condition.</li>
-            <li>This system does <strong>not</strong> predict future disease onset, does <strong>not</strong> diagnose medical conditions, and does <strong>not</strong> replace clinical laboratory testing (such as HbA1c, fasting glucose, eGFR, or clinical imaging).</li>
-            <li>Predicted probability scores reflect rank-ordering under class-weighted model optimization rather than medically calibrated population probabilities.</li>
-        </ul>
-    </div>
-    """, unsafe_allow_html=True)
-
-
-# ---------------------------------------------------------
 # SIDEBAR NAVIGATION
 # ---------------------------------------------------------
-st.sidebar.image("https://img.icons8.com/color/96/000000/stethoscope.png", width=70)
-st.sidebar.title("Navigation")
-page = st.sidebar.radio(
-    "Go to",
-    [
-        "Home / Overview",
-        "Disease Classification",
-        "Model Performance",
-        "About the Dataset",
-        "Project Limitations"
-    ]
-)
+if "page" not in st.session_state:
+    st.session_state.page = "Overview"
 
-st.sidebar.markdown("---")
-st.sidebar.info(
-    "**CodeAlpha Task 4 (Remediated)**\n\n"
-    "• Strict 3-Way Stratified Split (60/20/20)\n"
-    "• Zero Preprocessing Leakage (Pipelines)\n"
-    "• Model Selection via CV ROC-AUC Only\n"
-    "• Validation Threshold Optimization\n"
-    "• 7 Verified CDC Chronic Diseases"
+st.sidebar.markdown("### Navigation")
+selected_page = st.sidebar.radio(
+    "Navigation Menu",
+    ["Overview", "Assessment"],
+    index=0 if st.session_state.page == "Overview" else 1,
+    label_visibility="collapsed"
 )
+st.session_state.page = selected_page
 
 
 # ---------------------------------------------------------
-# PAGE 1: HOME / OVERVIEW
+# PAGE 1: OVERVIEW
 # ---------------------------------------------------------
-if page == "Home / Overview":
-    st.markdown('<div class="main-header">🩺 Multi-Disease Classification Dashboard</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Educational Cross-Sectional Chronic Disease Classification via CDC BRFSS 2024 Data</div>', unsafe_allow_html=True)
-    render_disclaimer()
+if st.session_state.page == "Overview":
+    st.markdown('<div class="app-title" style="color: #38bdf8 !important;">Multi-Disease Classification System</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="app-subtitle">'
+        'An independent data science application analyzing statistical patterns in the '
+        'CDC Behavioral Risk Factor Surveillance System (BRFSS) 2024 survey.'
+        '</div>',
+        unsafe_allow_html=True
+    )
 
-    col1, col2 = st.columns([3, 2])
-    with col1:
-        st.markdown("""
-        ### Project Objectives & Educational Scope
-        This project provides an end-to-end Machine Learning pipeline that simultaneously evaluates chronic disease associations across **7 validated conditions** using standardized respondent demographic, behavioral, and self-reported health indicators:
-        
-        1. **Diabetes Mellitus** (XGBoost)
-        2. **Heart Disease (CHD / Myocardial Infarction)** (Logistic Regression)
-        3. **Stroke** (Calibrated Linear SVM)
-        4. **Asthma** (Random Forest)
-        5. **Chronic Obstructive Pulmonary Disease (COPD)** (Random Forest)
-        6. **Chronic Kidney Disease** (Calibrated Linear SVM)
-        7. **Arthritis** (XGBoost)
-        
-        ### Methodological Remediation Highlights:
-        - **Model Selection Integrity:** Winning algorithms were selected **exclusively by mean cross-validation ROC-AUC on training data (60,000 samples)**, completely eliminating test-set snooping.
-        - **Pipeline Preprocessing Isolation:** Imputation and scaling are encapsulated inside `sklearn.pipeline.Pipeline`, fitting strictly inside training CV folds without validation leakage.
-        - **Validation Threshold Optimization:** Decision thresholds $\\tau^*$ were optimized on a separate validation set (20,000 samples) to achieve recall-constrained F1 optimization (target Recall $\\ge 70%$, with Youden's J fallback for Stroke and Kidney Disease), before touching the locked holdout test set (20,000 samples).
-        - **Zero Target Leakage:** Every disease model is strictly barred from seeing any other disease outcomes.
-        """)
+    st.markdown("""
+    This application evaluates self-reported demographic, health, and lifestyle indicators against statistical 
+    classification models trained on CDC BRFSS survey data.
     
+    Visitors can complete a brief questionnaire to explore how specific combinations of reported characteristics 
+    statistically associate with existing diagnoses across seven chronic conditions.
+    """)
+
+    st.markdown('<div class="section-title" style="color: #38bdf8 !important; border-bottom: 2px solid #38bdf8 !important;">Supported Conditions</div>', unsafe_allow_html=True)
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown('<div class="condition-item">Diabetes Mellitus</div>', unsafe_allow_html=True)
+        st.markdown('<div class="condition-item">Heart Disease (CHD / Myocardial Infarction)</div>', unsafe_allow_html=True)
+        st.markdown('<div class="condition-item">Stroke</div>', unsafe_allow_html=True)
+        st.markdown('<div class="condition-item">Asthma</div>', unsafe_allow_html=True)
+
     with col2:
-        st.markdown("### Audited System Statistics")
-        st.metric(label="Raw BRFSS Survey Respondents", value="457,670")
-        st.metric(label="Clean Complete Cases Across 7 Targets", value="444,259 (97.1%)")
-        st.metric(label="Dedicated Holdout Test Set", value="20,000 samples (LOCKED)")
-        st.metric(label="Independent Disease Models", value="7 Specialized Classifiers")
-        st.metric(label="Predictor Features", value="16 Non-Leaking Indicators")
+        st.markdown('<div class="condition-item">Chronic Obstructive Pulmonary Disease (COPD)</div>', unsafe_allow_html=True)
+        st.markdown('<div class="condition-item">Chronic Kidney Disease</div>', unsafe_allow_html=True)
+        st.markdown('<div class="condition-item">Arthritis</div>', unsafe_allow_html=True)
 
-    st.markdown("---")
-    st.markdown("### Chronic Disease Prevalence in the Analyzed Sample (BRFSS 2024)")
-    if os.path.exists("reports/figures/disease_prevalence.png"):
-        st.image("reports/figures/disease_prevalence.png", use_container_width=True)
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("Begin Health Assessment", type="primary"):
+        st.session_state.page = "Assessment"
+        st.rerun()
 
 
 # ---------------------------------------------------------
-# PAGE 2: DISEASE CLASSIFICATION
+# PAGE 2: ASSESSMENT (QUESTIONNAIRE & RESULTS)
 # ---------------------------------------------------------
-elif page == "Disease Classification":
-    st.markdown('<div class="main-header">🩺 Respondent Health Profile Classification</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Enter self-reported demographic, lifestyle, and health indicators to evaluate multi-disease classification profiles.</div>', unsafe_allow_html=True)
-    render_disclaimer()
+elif st.session_state.page == "Assessment":
+    st.markdown('<div class="app-title" style="color: #38bdf8 !important;">Health & Lifestyle Questionnaire</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="app-subtitle">'
+        'Enter demographic, lifestyle, and health indicators to evaluate statistical classification outcomes.'
+        '</div>',
+        unsafe_allow_html=True
+    )
 
-    # Preset profiles
-    st.markdown("#### Load Preset Respondent Profiles")
-    preset_col1, preset_col2, preset_col3 = st.columns([2, 2, 4])
-    sample_profiles = get_sample_patient_profiles()
+    # Optional preset loader
+    with st.expander("Load sample profile (optional)", expanded=False):
+        preset_cols = st.columns([1, 1, 2])
+        sample_profiles = get_sample_patient_profiles()
 
-    selected_preset = None
-    if preset_col1.button("👤 Young Adult Profile (Lower Score)"):
-        selected_preset = sample_profiles['Healthy Young Adult (Low Risk)']
-    if preset_col2.button("⚠️ Senior Profile (Higher Score)"):
-        selected_preset = sample_profiles['Senior with Multiple Risk Factors (High Risk)']
+        if preset_cols[0].button("Young adult profile"):
+            st.session_state.update(sample_profiles['Healthy Young Adult (Low Risk)'])
+            st.rerun()
 
-    if selected_preset:
-        st.session_state.update(selected_preset)
-        st.success("Loaded demo profile successfully!")
+        if preset_cols[1].button("Senior profile"):
+            st.session_state.update(sample_profiles['Senior with Multiple Risk Factors (High Risk)'])
+            st.rerun()
 
-    st.markdown("---")
-    st.markdown("### Respondent Health & Lifestyle Questionnaire")
+    with st.form("assessment_form"):
+        # Section A: Demographic Information
+        st.markdown('<div class="section-title" style="color: #38bdf8 !important; border-bottom: 2px solid #38bdf8 !important;">Section A — Demographic Information</div>', unsafe_allow_html=True)
+        col_a1, col_a2 = st.columns(2)
 
-    with st.form("patient_input_form"):
-        col_a, col_b, col_c = st.columns(3)
-
-        with col_a:
-            st.markdown("##### 🧬 Demographics & Body Metrics")
-            age = st.slider("Age (Years)", 18, 80, int(st.session_state.get('age', 45)))
+        with col_a1:
+            age = st.number_input(
+                "Age (years)",
+                min_value=18,
+                max_value=80,
+                value=int(st.session_state.get('age', 45)),
+                step=1
+            )
             sex_choice = st.selectbox(
-                "Biological Sex",
+                "Biological sex",
                 ["Male", "Female"],
                 index=0 if st.session_state.get('sex', 1.0) == 1.0 else 1
             )
-            bmi = st.number_input(
-                "Body Mass Index (BMI in kg/m²)",
-                min_value=12.0,
-                max_value=65.0,
-                value=float(st.session_state.get('bmi', 26.5)),
-                step=0.1,
-                help="Healthy: 18.5 - 24.9 | Overweight: 25 - 29.9 | Obese: 30+"
-            )
             race_options = {
-                "White non-Hispanic": 1.0,
-                "Black non-Hispanic": 2.0,
-                "Other race non-Hispanic": 3.0,
-                "Multiracial non-Hispanic": 4.0,
-                "Hispanic": 5.0
+                "White (non-Hispanic)": 1.0,
+                "Black or African American (non-Hispanic)": 2.0,
+                "Other Race (non-Hispanic)": 3.0,
+                "Multiracial (non-Hispanic)": 4.0,
+                "Hispanic or Latino": 5.0,
+                "Prefer not to say / Unreported": np.nan
             }
-            race_choice = st.selectbox("Race / Ethnicity", list(race_options.keys()))
+            # Determine initial index
+            current_race = st.session_state.get('race_ethnicity', 1.0)
+            race_default_idx = 0
+            if pd.isna(current_race):
+                race_default_idx = 5
+            elif current_race in [1.0, 2.0, 3.0, 4.0, 5.0]:
+                race_default_idx = int(current_race) - 1
 
-        with col_b:
-            st.markdown("##### 🩺 Current Health Status (Concurrent Correlates)")
+            race_choice = st.selectbox(
+                "Race / Ethnicity",
+                list(race_options.keys()),
+                index=race_default_idx
+            )
+
+        with col_a2:
+            edu_options = {
+                "Did not graduate high school": 1.0,
+                "Graduated high school or equivalent (GED)": 2.0,
+                "Attended college or technical school": 3.0,
+                "Graduated from college or technical school": 4.0
+            }
+            edu_choice = st.selectbox(
+                "Education level",
+                list(edu_options.keys()),
+                index=int(st.session_state.get('education_level', 3.0)) - 1
+            )
+            inc_options = {
+                "Less than $15,000": 1.0,
+                "$15,000 to < $25,000": 2.0,
+                "$25,000 to < $35,000": 3.0,
+                "$35,000 to < $50,000": 4.0,
+                "$50,000 to < $100,000": 5.0,
+                "$100,000 to < $200,000": 6.0,
+                "$200,000 or more": 7.0
+            }
+            inc_choice = st.selectbox(
+                "Annual household income",
+                list(inc_options.keys()),
+                index=int(st.session_state.get('income_level', 5.0)) - 1
+            )
+
+        # Section B: General Health
+        st.markdown('<div class="section-title" style="color: #38bdf8 !important; border-bottom: 2px solid #38bdf8 !important;">Section B — General Health</div>', unsafe_allow_html=True)
+        col_b1, col_b2 = st.columns(2)
+
+        with col_b1:
             gh_options = {
-                "1 - Excellent": 1.0,
-                "2 - Very Good": 2.0,
-                "3 - Good": 3.0,
-                "4 - Fair": 4.0,
-                "5 - Poor": 5.0
+                "Excellent": 1.0,
+                "Very good": 2.0,
+                "Good": 3.0,
+                "Fair": 4.0,
+                "Poor": 5.0
             }
             gh_choice = st.selectbox(
-                "General Health Self-Rating",
+                "General health self-rating",
                 list(gh_options.keys()),
                 index=int(st.session_state.get('general_health', 3.0)) - 1
             )
-            phys_days = st.slider(
-                "Poor Physical Health Days (past 30 days)",
-                0, 30,
-                int(st.session_state.get('physical_health_days', 0))
-            )
-            ment_days = st.slider(
-                "Poor Mental Health Days (past 30 days)",
-                0, 30,
-                int(st.session_state.get('mental_health_days', 0))
-            )
             diff_walk_choice = st.selectbox(
-                "Difficulty Walking or Climbing Stairs?",
+                "Difficulty walking or climbing stairs",
                 ["No", "Yes"],
                 index=int(st.session_state.get('diff_walk', 0.0))
             )
 
-        with col_c:
-            st.markdown("##### 🏃 Lifestyle & Healthcare Access")
+        with col_b2:
+            phys_days = st.number_input(
+                "Days of poor physical health (past 30 days)",
+                min_value=0,
+                max_value=30,
+                value=int(st.session_state.get('physical_health_days', 0)),
+                step=1
+            )
+            ment_days = st.number_input(
+                "Days of poor mental health (past 30 days)",
+                min_value=0,
+                max_value=30,
+                value=int(st.session_state.get('mental_health_days', 0)),
+                step=1
+            )
+
+        # Section C: Lifestyle
+        st.markdown('<div class="section-title" style="color: #38bdf8 !important; border-bottom: 2px solid #38bdf8 !important;">Section C — Lifestyle</div>', unsafe_allow_html=True)
+        col_c1, col_c2 = st.columns(2)
+
+        with col_c1:
             exer_choice = st.selectbox(
-                "Physical Activity / Exercise (past 30 days)",
+                "Physical activity or exercise (past 30 days)",
                 ["Yes", "No"],
                 index=0 if st.session_state.get('exercise_any', 1.0) == 1.0 else 1
             )
@@ -282,21 +317,41 @@ elif page == "Disease Classification":
                 "Current smoker (some days)": 2.0,
                 "Current smoker (every day)": 1.0
             }
-            smk_choice = st.selectbox("Smoking Status", list(smk_options.keys()))
-            
+            smk_choice = st.selectbox(
+                "Smoking status",
+                list(smk_options.keys()),
+                index=0
+            )
+            bmi = st.number_input(
+                "Body Mass Index (BMI in kg/m²)",
+                min_value=12.0,
+                max_value=70.0,
+                value=float(st.session_state.get('bmi', 26.5)),
+                step=0.1
+            )
+
+        with col_c2:
             ecig_options = {
                 "Never used e-cigarettes": 1.0,
                 "Former e-cigarette user": 3.0,
                 "Current e-cigarette user": 2.0
             }
-            ecig_choice = st.selectbox("E-Cigarette Status", list(ecig_options.keys()))
-            
+            ecig_choice = st.selectbox(
+                "E-cigarette usage",
+                list(ecig_options.keys()),
+                index=0
+            )
             heavy_drink_choice = st.selectbox(
-                "Heavy Alcohol Consumption (Men >14/wk, Women >7/wk)",
+                "Heavy alcohol consumption (Men >14/wk, Women >7/wk)",
                 ["No", "Yes"],
                 index=int(st.session_state.get('heavy_drinker', 0.0))
             )
 
+        # Section D: Healthcare Access
+        st.markdown('<div class="section-title" style="color: #38bdf8 !important; border-bottom: 2px solid #38bdf8 !important;">Section D — Healthcare Access</div>', unsafe_allow_html=True)
+        col_d1, col_d2 = st.columns(2)
+
+        with col_d1:
             checkup_options = {
                 "Within past year": 1.0,
                 "Within past 2 years": 2.0,
@@ -304,34 +359,21 @@ elif page == "Disease Classification":
                 "5 or more years ago": 4.0,
                 "Never": 5.0
             }
-            checkup_choice = st.selectbox("Routine Checkup Interval", list(checkup_options.keys()))
+            checkup_choice = st.selectbox(
+                "Last routine medical checkup",
+                list(checkup_options.keys()),
+                index=0
+            )
 
+        with col_d2:
             ins_choice = st.selectbox(
-                "Have Healthcare Insurance Coverage?",
+                "Healthcare insurance coverage",
                 ["Yes", "No"],
                 index=0 if st.session_state.get('healthcare_coverage', 1.0) == 1.0 else 1
             )
 
-            edu_options = {
-                "Graduated College / Technical School": 4.0,
-                "Attended College / Technical School": 3.0,
-                "Graduated High School": 2.0,
-                "Did Not Graduate High School": 1.0
-            }
-            edu_choice = st.selectbox("Education Level", list(edu_options.keys()))
-
-            inc_options = {
-                "$100,000 to < $200,000": 6.0,
-                "$50,000 to < $100,000": 5.0,
-                "$35,000 to < $50,000": 4.0,
-                "$25,000 to < $35,000": 3.0,
-                "$15,000 to < $25,000": 2.0,
-                "Less than $15,000": 1.0,
-                "$200,000 or more": 7.0
-            }
-            inc_choice = st.selectbox("Household Income Level", list(inc_options.keys()))
-
-        submitted = st.form_submit_button("🚀 Run Multi-Disease Classification", use_container_width=True)
+        st.markdown("<br>", unsafe_allow_html=True)
+        submitted = st.form_submit_button("Run Assessment", type="primary", use_container_width=True)
 
     if submitted:
         patient_dict = {
@@ -355,174 +397,36 @@ elif page == "Disease Classification":
 
         try:
             results = predictor.predict_all_diseases(patient_dict)
-            st.markdown("---")
-            st.markdown("### 📊 Multi-Disease Classification Results")
+            st.markdown('<div class="section-title" style="color: #38bdf8 !important; border-bottom: 2px solid #38bdf8 !important;">Assessment Results</div>', unsafe_allow_html=True)
 
-            st.markdown("""
-            <div class="info-box">
-                ℹ️ <strong>Classification Semantics:</strong><br>
-                • <strong>Positive:</strong> Respondent profile aligns with survey respondents reporting an existing condition under the validation-selected decision threshold.<br>
-                • <strong>Negative:</strong> Respondent profile aligns with the non-reporting reference group.<br>
-                • <strong>Score Notice:</strong> Probability scores are uncalibrated ranking scores under class-weighted model optimization and must not be interpreted as clinical probabilities or absolute diagnostic incidence.
-            </div>
-            """, unsafe_allow_html=True)
-
-            res_cols = st.columns(len(results))
-            for idx, (target_col, res) in enumerate(results.items()):
-                with res_cols[idx]:
-                    tier = res['risk_tier']
-                    prob = res['probability_pct']
-                    tau = res['selected_threshold']
-                    label = res['prediction_label']
-
-                    st.markdown(f"**{res['disease_name']}**")
-                    if label == "Positive":
-                        st.error(f"⚠️ Positive ({prob})")
-                    else:
-                        st.success(f"✅ Negative ({prob})")
-                    st.caption(f"Model: {res['model_name']}\n\nThreshold: $\\tau^*={tau:.2f}$")
-
-            # Detailed results table
-            st.markdown("#### Classification Summary Table")
-            table_data = []
+            table_rows = []
             for target_col, res in results.items():
-                table_data.append({
-                    "Chronic Condition": res['disease_name'],
-                    "Winning Model (CV)": res['model_name'],
-                    "Classification Result": res['prediction_label'],
-                    "Selected Threshold (τ*)": f"{res['selected_threshold']:.2f}",
-                    "Default Result (τ=0.50)": res['prediction_default_label'],
-                    "Model Probability Score": res['probability_pct'],
-                    "Score Category": res['risk_tier']
+                table_rows.append({
+                    "Condition": res['disease_name'],
+                    "Classification": res['prediction_label'],
+                    "Operating Threshold": f"{res['selected_threshold']:.2f}",
+                    "Model Score": res['probability_pct']
                 })
-            st.table(pd.DataFrame(table_data))
+
+            df_results = pd.DataFrame(table_rows)
+            st.table(df_results)
+
+            st.caption(
+                "Classification outcomes indicate whether the reported profile aligns with survey respondents "
+                "reporting existing chronic conditions under validation-selected decision thresholds. Model scores "
+                "represent relative rank-ordering metrics rather than clinical diagnostic probabilities."
+            )
 
         except Exception as e:
             st.error(f"Error executing prediction: {e}")
 
 
 # ---------------------------------------------------------
-# PAGE 3: MODEL PERFORMANCE
+# FOOTER
 # ---------------------------------------------------------
-elif page == "Model Performance":
-    st.markdown('<div class="main-header">📈 Methodologically Validated Model Performance</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Holdout test set evaluation (20,000 samples) following cross-validation model selection and validation threshold tuning.</div>', unsafe_allow_html=True)
-    render_disclaimer()
-
-    # Load summary CSV if exists
-    summary_path = os.path.join("reports", "model_comparison_summary.csv")
-    if os.path.exists(summary_path):
-        st.markdown("### 🏆 Remediated Model Selection & Holdout Test Evaluation Summary")
-        st.caption("Models were chosen strictly based on Train CV ROC-AUC. Test set (20,000 samples) was touched strictly once for final reporting.")
-        sum_df = pd.read_csv(summary_path)
-        st.dataframe(sum_df, use_container_width=True)
-
-    calib_summary_path = os.path.join("reports", "threshold_calibration_summary.csv")
-    if os.path.exists(calib_summary_path):
-        st.markdown("### 🎯 Decision Threshold Optimization & Calibration Summary")
-        calib_df = pd.read_csv(calib_summary_path)
-        st.dataframe(calib_df, use_container_width=True)
-
-    st.markdown("---")
-    st.markdown("### 📊 Diagnostic Plots (Confusion Matrices, ROC, PR, and Calibration Curves)")
-
-    disease_tabs = st.tabs([
-        "Diabetes", "Heart Disease", "Stroke", "Asthma", "COPD", "Kidney Disease", "Arthritis"
-    ])
-    slugs = ["diabetes", "heart_disease", "stroke", "asthma", "copd", "kidney_disease", "arthritis"]
-
-    for tab, slug in zip(disease_tabs, slugs):
-        with tab:
-            cm_opt_path = f"reports/figures/{slug}_confusion_matrix.png"
-            cm_def_path = f"reports/figures/{slug}_confusion_matrix_default.png"
-            roc_path = f"reports/figures/{slug}_roc_curve.png"
-            pr_path = f"reports/figures/{slug}_pr_curve.png"
-            cal_path = f"reports/figures/{slug}_calibration_curve.png"
-
-            col_p1, col_p2 = st.columns(2)
-            with col_p1:
-                if os.path.exists(cm_opt_path):
-                    st.image(cm_opt_path, caption="Confusion Matrix @ Selected Decision Threshold (τ*)", use_container_width=True)
-                if os.path.exists(roc_path):
-                    st.image(roc_path, caption="ROC Curve (Holdout Test Set)", use_container_width=True)
-            with col_p2:
-                if os.path.exists(cm_def_path):
-                    st.image(cm_def_path, caption="Confusion Matrix @ Default Threshold (τ = 0.50)", use_container_width=True)
-                if os.path.exists(pr_path):
-                    st.image(pr_path, caption="Precision-Recall Curve (Holdout Test Set)", use_container_width=True)
-
-            if os.path.exists(cal_path):
-                st.markdown("#### Probability Calibration (Reliability)")
-                st.image(cal_path, caption="Calibration Curve (Validation Set) vs. Base Prevalence", use_container_width=True)
-
-
-# ---------------------------------------------------------
-# PAGE 4: ABOUT THE DATASET
-# ---------------------------------------------------------
-elif page == "About the Dataset":
-    st.markdown('<div class="main-header">📋 About the CDC BRFSS 2024 Dataset</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Data provenance, survey methodology, and variable specifications.</div>', unsafe_allow_html=True)
-    render_disclaimer()
-
-    st.markdown("""
-    ### Data Provenance & Administration
-    The **Behavioral Risk Factor Surveillance System (BRFSS)** is the nation's premier system of health-related telephone surveys that collect state-level data about U.S. residents regarding their health-related risk behaviors, chronic health conditions, and use of preventive services.
-    
-    - **Sponsor:** Centers for Disease Control and Prevention (CDC)
-    - **Year:** 2024 Annual Public Release
-    - **Official Documentation:** [CDC BRFSS 2024 Annual Data](https://www.cdc.gov/brfss/annual_data/annual_2024.html)
-    - **Total Records:** 457,670 survey respondents
-    - **Total Columns in Public File:** 301 columns
-
-    ### Complex Survey Sampling Design Variables
-    Official CDC 2024 design variable definitions:
-    - **`_LLCPWT`**: Final sampling weight (post-stratification / raking weight assigned to each respondent).
-    - **`_STSTR`**: Stratification identifier (geographic and sampling stratum).
-    - **`_PSU`**: Primary sampling unit (cluster identifier).
-    - **`_STRWT`**: Stratum weight (represents the stratum sampling weight, not the stratification identifier).
-
-    *Note on Model Scope:* All models in this educational system are unweighted. Performance metrics describe classification performance strictly on the analyzed survey sample and are **not population-representative national estimates**.
-
-    ### CDC Survey Rotation Schedule
-    - **Hypertension & Cholesterol:** Questions regarding high blood pressure (`BPHIGH4`) and cholesterol screening (`TOLDHI3`) are collected on **odd-numbered years only** (e.g. 2021, 2023, 2025). They are absent from the 2024 core module. Rather than imputing or synthesizing nonexistent data, this constraint is honestly documented.
-    """)
-
-    st.markdown("---")
-    st.markdown("### Risk Factor Distributions & Demographics")
-    col_d1, col_d2 = st.columns(2)
-    with col_d1:
-        if os.path.exists("reports/figures/bmi_and_age_distributions.png"):
-            st.image("reports/figures/bmi_and_age_distributions.png", caption="Age & BMI Distributions", use_container_width=True)
-    with col_d2:
-        if os.path.exists("reports/figures/lifestyle_risk_factors.png"):
-            st.image("reports/figures/lifestyle_risk_factors.png", caption="Lifestyle Risk Factor Distributions", use_container_width=True)
-
-
-# ---------------------------------------------------------
-# PAGE 5: PROJECT LIMITATIONS
-# ---------------------------------------------------------
-elif page == "Project Limitations":
-    st.markdown('<div class="main-header">⚠️ Methodological Limitations & Epidemiological Scope</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Transparent disclosure of clinical, algorithmic, and survey boundaries.</div>', unsafe_allow_html=True)
-    render_disclaimer()
-
-    st.markdown("""
-    ### 1. Cross-Sectional Nature vs. Prospective Prediction
-    - **No Future Prediction:** The BRFSS survey captures a single cross-sectional snapshot in time. It measures statistical associations between self-reported health factors and current disease status. It **cannot predict future disease incidence** or establish temporal causality.
-    - **Symptoms / Consequences as Predictors:** Features like General Health (`GENHLTH`), Physical Health Days (`PHYSHLTH`), and Walking Difficulty (`DIFFWALK`) often reflect consequences or active symptoms of existing disease rather than genuine pre-morbid risk factors.
-
-    ### 2. Observational Self-Reported Survey Data
-    - **Recall Bias & Detection Bias:** All medical diagnoses are self-reported by respondents over the telephone without clinical record verification.
-    - **Healthcare Access Confounding:** Individuals without insurance or regular doctor visits may have undiagnosed conditions, introducing differential detection bias.
-
-    ### 3. Diabetes Negative Class Heterogeneity
-    - In official CDC coding (`DIABETE4`), respondents reporting **prediabetes / borderline diabetes (11,307 respondents)** and gestational diabetes (3,395 respondents) are mapped to `0.0` (non-chronic diabetes).
-    - The negative class must not be interpreted as a "healthy" or "normoglycemic" control pool, as laboratory biomarker testing (fasting plasma glucose, HbA1c) is absent from the survey.
-
-    ### 4. Probability Calibration & Class Weighting
-    - In rare conditions (Stroke 4.5%, Kidney Disease 5.1%), applying balanced class weighting shifts raw predicted probabilities upward.
-    - Consequently, raw probability scores reflect relative ranking scores rather than true population-level absolute incidence rates. Decision threshold tuning was used to align operating points with educational classification objectives.
-
-    ### 5. Unweighted Model Estimates
-    - The models are evaluated on unweighted survey splits rather than via survey-weighted pseudo-maximum-likelihood algorithms. The metrics describe sample accuracy, not weighted US population diagnostic performance.
-    """)
+st.markdown(
+    '<div class="app-footer">'
+    'Educational classification project using self-reported survey data. Not intended for medical use.'
+    '</div>',
+    unsafe_allow_html=True
+)
