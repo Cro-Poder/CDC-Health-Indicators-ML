@@ -51,3 +51,33 @@ LLCP2024.XPT
 Thumbs.db
 desktop.ini
 
+*.parquet
+
+# Python
+*.pyo
+.pytest_cache/
+.mypy_cache/
+
+# Virtual environments
+.venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Raw and processed datasets
+data/raw/
+data/processed/
+*.csv
+
+# Internal reports
+reports/
+
+# OS and IDE files
+.vscode/
+.idea/
+
