@@ -1,0 +1,8 @@
+Disease,Selected Model (by CV),Train CV ROC-AUC,Holdout ROC-AUC,Holdout PR-AUC,Opt Threshold,Recall @ Opt,Specificity @ Opt,Precision @ Opt,F1 @ Opt,Pred Pos Rate @ Opt,Recall @ 0.50,Precision @ 0.50,F1 @ 0.50,Pred Pos Rate @ 0.50
+Diabetes Mellitus,XGBoost,0.8089 +/- 0.0005,0.8051,0.3806,0.55,73.13%,72.84%,30.96%,0.4350,33.7%,78.53%,28.90%,0.4225,38.8%
+Heart Disease (CHD / MI),Logistic Regression,0.8194 +/- 0.0007,0.8262,0.3101,0.55,74.88%,75.79%,23.72%,0.3602,28.8%,80.41%,21.92%,0.3445,33.5%
+Stroke,Support Vector Machine (Linear),0.8021 +/- 0.0073,0.7949,0.1386,0.10,38.17%,89.75%,14.67%,0.2119,11.5%,0.00%,0.00%,0.0000,0.0%
+Asthma,Random Forest,0.6607 +/- 0.0058,0.6630,0.2720,0.40,79.52%,40.64%,19.79%,0.3170,62.5%,50.88%,25.02%,0.3354,31.6%
+COPD / Chronic Bronchitis,Random Forest,0.8412 +/- 0.0006,0.8318,0.3339,0.50,69.36%,80.77%,23.51%,0.3511,23.2%,69.36%,23.51%,0.3511,23.2%
+Chronic Kidney Disease,Support Vector Machine (Linear),0.7828 +/- 0.0047,0.8017,0.1684,0.10,45.61%,88.34%,17.46%,0.2526,13.4%,0.00%,0.00%,0.0000,0.0%
+Arthritis,XGBoost,0.8089 +/- 0.0016,0.8154,0.6777,0.50,78.63%,69.21%,57.58%,0.6648,47.4%,78.63%,57.58%,0.6648,47.4%
